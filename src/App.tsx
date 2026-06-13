@@ -48,7 +48,6 @@ export default function App() {
   const [selectedLocation, setSelectedLocation] = useState<LocationItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | OpenAreaType>('all');
-  const [selectedLiveFilter, setSelectedLiveFilter] = useState<'all' | LiveStatus>('all');
   const [selectedViewTab, setSelectedViewTab] = useState<'approved' | 'my_spots' | 'pending_moderation'>('approved');
 
   // Auth User state
@@ -182,12 +181,7 @@ export default function App() {
       result = result.filter(loc => loc.openAreaType === selectedCategoryFilter);
     }
 
-    // 3. Filter by Live status category (streaming, upcoming, inactive)
-    if (selectedLiveFilter !== 'all') {
-      result = result.filter(loc => loc.liveStatus === selectedLiveFilter);
-    }
-
-    // 4. Filter by character Search query
+    // 3. Filter by character Search query
     if (searchQuery.trim()) {
       const queryLower = searchQuery.toLowerCase();
       result = result.filter(
@@ -199,7 +193,7 @@ export default function App() {
     }
 
     setFilteredLocations(result);
-  }, [locations, searchQuery, selectedCategoryFilter, selectedLiveFilter, selectedViewTab, user]);
+  }, [locations, searchQuery, selectedCategoryFilter, selectedViewTab, user]);
 
   // Handle Manual Synchronisation of queue
   const handleSyncQueue = async () => {
@@ -459,7 +453,7 @@ export default function App() {
             </div>
 
             {/* Sub Filter Category Segments */}
-            <div className="grid grid-cols-2 gap-3 text-xs font-sans">
+            <div className="text-xs font-sans">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-indigo-800 tracking-wider mb-1">এরিয়ার ক্যাটাগরি:</label>
                 <select
@@ -474,20 +468,6 @@ export default function App() {
                   <option value="Lakeside">🌊 লেকের পাড়</option>
                   <option value="Market">🛍️ খোলা বাজার স্পট</option>
                   <option value="Other">🍃 অন্যান্য উন্মুক্ত অঞ্চল</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-indigo-800 tracking-wider mb-1">লাইভ খেলা স্ট্যাটাস:</label>
-                <select
-                  value={selectedLiveFilter}
-                  onChange={(e) => setSelectedLiveFilter(e.target.value as any)}
-                  className="w-full p-2 bg-slate-50 border border-slate-250 rounded-lg focus:ring-2 focus:ring-indigo-650 focus:outline-none font-sans"
-                >
-                  <option value="all">সব খেলা স্ট্যাটাস</option>
-                  <option value="streaming">🟢 খেলা চলছে (Active)</option>
-                  <option value="upcoming">🟡 শীঘ্রই শুরু (Upcoming)</option>
-                  <option value="inactive">🔴 খেলা এখন বন্ধ (Offline)</option>
                 </select>
               </div>
             </div>
@@ -554,13 +534,9 @@ export default function App() {
                   >
                     {/* Badge line representing geometric layout */}
                     <div className="flex justify-between items-start">
-                      {/* Live status badge */}
-                      <span className={`text-[9px] font-black tracking-wider px-2 py-0.5 rounded uppercase text-white ${loc.liveStatus === 'streaming'
-                        ? 'bg-indigo-600'
-                        : loc.liveStatus === 'upcoming'
-                        ? 'bg-amber-500'
-                        : 'bg-slate-400'}`}>
-                        {loc.liveStatus === 'streaming' ? 'LIVE NOW' : loc.liveStatus === 'upcoming' ? 'UPCOMING' : 'CLOSED'}
+                      {/* Area Category Badge */}
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 border border-indigo-150 text-indigo-750">
+                        {loc.openAreaType === 'Playground' ? '🏟️ খেলার মাঠ' : loc.openAreaType === 'Park' ? '🌳 পার্ক' : loc.openAreaType === 'Square' ? '📍 চত্বর' : loc.openAreaType === 'Lakeside' ? '🌊 লেকের পাড়' : loc.openAreaType === 'Market' ? '🛍️ বাজার' : '🍃 উন্মুক্ত অঞ্চল'}
                       </span>
 
                       {/* Approval status indicator styled according to design draft */}

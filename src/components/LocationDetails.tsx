@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { LocationItem, ListingStatus, LiveStatus } from '../types';
+import { LocationItem, ListingStatus } from '../types';
 import { auth } from '../firebase';
-import { voteLocation, checkHasUserVoted, updateLocationStatus, updateLiveStatus, isOnline } from '../dbService';
+import { voteLocation, checkHasUserVoted, updateLocationStatus, isOnline } from '../dbService';
 
 interface LocationDetailsProps {
   location: LocationItem | null;
@@ -127,21 +127,6 @@ export default function LocationDetails({
     }
   };
 
-  // Modify active screen live performance streaming status
-  const handleLiveStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLive = e.target.value as LiveStatus;
-    setStatusLoader(true);
-    try {
-      await updateLiveStatus(location.id, newLive);
-      alert('লোকেশনটির লাইভ সম্প্রচার স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে।');
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'লাইভ স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে।');
-    } finally {
-      setStatusLoader(false);
-    }
-  };
-
   // Generate Google Map Direction URL
   const getDirectionUrl = () => {
     return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`;
@@ -198,41 +183,18 @@ export default function LocationDetails({
           </button>
         </div>
 
-        {/* Live Status and Distance indicator */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="bg-slate-50 border-b-2 border-indigo-200 rounded-xl p-4 flex items-center gap-3.5 shadow-sm flex-1">
-            <div className="relative flex h-4 w-4 shrink-0">
-              {location.liveStatus === 'streaming' ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
-                </>
-              ) : location.liveStatus === 'upcoming' ? (
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
-              ) : (
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-slate-400"></span>
-              )}
-            </div>
-            <div className="font-sans flex-1">
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">বর্তমান লাইভ স্ট্যাটাস</span>
-              <span className="text-xs font-extrabold text-slate-800 block mt-0.5">
-                {location.liveStatus === 'streaming' && '🟢 খেলা চলছে (Now Streaming Live!)'}
-                {location.liveStatus === 'upcoming' && '🟡 শীঘ্রই শুরু হবে (Match Upcoming)'}
-                {location.liveStatus === 'inactive' && '🔴 এখন কোনো ম্যাচ নেই (Closed)'}
-              </span>
-            </div>
-          </div>
-
-          {distanceStr && (
-            <div className="bg-indigo-50 border-b-2 border-indigo-300 rounded-xl p-4 flex items-center gap-3 shadow-sm min-w-[130px] shrink-0">
+        {/* Distance indicator */}
+        {distanceStr && (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="bg-indigo-50 border-b-2 border-indigo-300 rounded-xl p-4 flex items-center gap-3 shadow-sm flex-1">
               <div className="text-lg">🏃‍♂️</div>
               <div className="font-sans flex-1">
                 <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 block">আপনার থেকে দূরত্ব</span>
                 <span className="text-xs font-black text-indigo-900 block mt-0.5">{distanceStr}</span>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Spot Details */}
         <div className="space-y-4 text-xs">
@@ -312,58 +274,37 @@ export default function LocationDetails({
           )}
         </div>
 
-        {/* Dynamic Managerial Panel (Visible to Creator / Admins) */}
-        {canManageLive && (
+        {/* Dynamic Managerial Panel (Visible to Admins) */}
+        {isAdmin && (
           <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-4 gap-3.5 space-y-3 font-sans shadow-sm">
             <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider block flex items-center gap-1">
-              ⚙️ স্পট কন্ট্রোল ও লাইভ স্ট্যাটাস আপডেট
+              ⚙️ এডমিন মডারেশন প্যানেল
             </span>
 
             <div className="grid grid-cols-1 gap-2">
-              {/* Creator changes Stream condition */}
-              <div>
-                <label className="block text-[10.5px] text-amber-800 font-extrabold mb-1">সম্প্রচার পরিবর্তন করুন:</label>
-                <select
-                  value={location.liveStatus}
-                  onChange={handleLiveStatusChange}
-                  disabled={statusLoader}
-                  className="w-full text-xs font-sans font-extrabold p-2 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleListingStatusChange('approved')}
+                  disabled={statusLoader || location.status === 'approved'}
+                  className={`flex-1 py-1.5 px-3 border rounded-lg text-xs font-black text-center transition-all ${location.status === 'approved'
+                    ? 'bg-emerald-100 border-emerald-250 text-emerald-800 cursor-not-allowed opacity-80'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:scale-102 active:scale-98'}`}
                 >
-                  <option value="inactive">🔴 খেলা বন্ধ (Closed)</option>
-                  <option value="upcoming">🟡 শীঘ্রই শুরু হবে (Upcoming)</option>
-                  <option value="streaming">🟢 খেলা চলছে (Now Streaming)</option>
-                </select>
+                  অ্যাপ্রুভ (Approve)
+                </button>
+                <button
+                  onClick={() => handleListingStatusChange('rejected')}
+                  disabled={statusLoader || location.status === 'rejected'}
+                  className={`flex-1 py-1.5 px-3 border rounded-lg text-xs font-black text-center transition-all ${location.status === 'rejected'
+                    ? 'bg-rose-100 border-rose-250 text-rose-800 cursor-not-allowed opacity-80'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:scale-102 active:scale-98'}`}
+                >
+                  বাতিল (Reject)
+                </button>
               </div>
-
-              {/* Admin approves custom listing */}
-              {isAdmin && (
-                <div className="pt-2.5 border-t border-amber-200/80 mt-1">
-                  <span className="block text-[10.5px] text-amber-800 font-extrabold mb-1">অ্যাডমিন মডারেশন প্যানেল:</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleListingStatusChange('approved')}
-                      disabled={statusLoader || location.status === 'approved'}
-                      className={`flex-1 py-1.5 px-3 border rounded-lg text-xs font-black text-center transition-all ${location.status === 'approved'
-                        ? 'bg-emerald-100 border-emerald-250 text-emerald-800 cursor-not-allowed opacity-80'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:scale-102 active:scale-98'}`}
-                    >
-                      অ্যাপ্রুভ (Approve)
-                    </button>
-                    <button
-                      onClick={() => handleListingStatusChange('rejected')}
-                      disabled={statusLoader || location.status === 'rejected'}
-                      className={`flex-1 py-1.5 px-3 border rounded-lg text-xs font-black text-center transition-all ${location.status === 'rejected'
-                        ? 'bg-rose-100 border-rose-250 text-rose-800 cursor-not-allowed opacity-80'
-                        : 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:scale-102 active:scale-98'}`}
-                    >
-                      বাতিল (Reject)
-                    </button>
-                  </div>
-                  <div className="text-[10px] mt-1.5 text-amber-800 leading-tight">
-                    * বর্তমান মডারেশন স্ট্যাটাস: <strong>{location.status === 'pending' ? 'পেন্ডিং 🟡' : location.status === 'approved' ? 'অ্যাপ্রুভড 🟢' : 'রিজেক্টেড 🔴'}</strong>
-                  </div>
-                </div>
-              )}
+              <div className="text-[10px] mt-1.5 text-amber-800 leading-tight">
+                * বর্তমান মডারেশন স্ট্যাটাস: <strong>{location.status === 'pending' ? 'পেন্ডিং 🟡' : location.status === 'approved' ? 'অ্যাপ্রুভড 🟢' : 'রিজেক্টেড 🔴'}</strong>
+              </div>
             </div>
           </div>
         )}
