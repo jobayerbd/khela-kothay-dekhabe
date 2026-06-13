@@ -13,27 +13,22 @@ interface LocationDetailsProps {
   onClose: () => void;
   onRefresh: () => void;
   adminEmail: string;
+  userCoords?: { lat: number; lng: number } | null;
+  currentUser: any;
 }
 
 export default function LocationDetails({
   location,
   onClose,
   onRefresh,
-  adminEmail
+  adminEmail,
+  userCoords,
+  currentUser
 }: LocationDetailsProps) {
-  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [votedType, setVotedType] = useState<'real' | 'fake' | null>(null);
   const [checkingVote, setCheckingVote] = useState(false);
   const [votingLoader, setVotingLoader] = useState(false);
   const [statusLoader, setStatusLoader] = useState(false);
-
-  // Sync auth state
-  useEffect(() => {
-    const unsub = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user);
-    });
-    return unsub;
-  }, []);
 
   // Check if current user has already voted on selected location
   useEffect(() => {
@@ -61,6 +56,31 @@ export default function LocationDetails({
   const totalVotes = location.realCount + location.fakeCount;
   const realPercent = totalVotes > 0 ? Math.round((location.realCount / totalVotes) * 100) : 0;
   const fakePercent = totalVotes > 0 ? Math.round((location.fakeCount / totalVotes) * 100) : 0;
+
+  // Distance Calculation using Haversine formula
+  let distanceStr = '';
+  if (userCoords && location) {
+    const lat1 = userCoords.lat;
+    const lon1 = userCoords.lng;
+    const lat2 = location.lat;
+    const lon2 = location.lng;
+    
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const d = R * c;
+    
+    if (d < 1) {
+      distanceStr = `${Math.round(d * 1000)} মিটার`;
+    } else {
+      distanceStr = `${d.toFixed(1)} কি.মি.`;
+    }
+  }
 
   // Handle Feedback Submission
   const handleVote = async (type: 'real' | 'fake') => {
@@ -178,28 +198,40 @@ export default function LocationDetails({
           </button>
         </div>
 
-        {/* Live Status indicator */}
-        <div className="bg-slate-50 border-b-2 border-indigo-200 rounded-xl p-4 flex items-center gap-3.5 shadow-sm">
-          <div className="relative flex h-4 w-4 shrink-0">
-            {location.liveStatus === 'streaming' ? (
-              <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
-              </>
-            ) : location.liveStatus === 'upcoming' ? (
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
-            ) : (
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-slate-400"></span>
-            )}
+        {/* Live Status and Distance indicator */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="bg-slate-50 border-b-2 border-indigo-200 rounded-xl p-4 flex items-center gap-3.5 shadow-sm flex-1">
+            <div className="relative flex h-4 w-4 shrink-0">
+              {location.liveStatus === 'streaming' ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                </>
+              ) : location.liveStatus === 'upcoming' ? (
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
+              ) : (
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-slate-400"></span>
+              )}
+            </div>
+            <div className="font-sans flex-1">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">বর্তমান লাইভ স্ট্যাটাস</span>
+              <span className="text-xs font-extrabold text-slate-800 block mt-0.5">
+                {location.liveStatus === 'streaming' && '🟢 খেলা চলছে (Now Streaming Live!)'}
+                {location.liveStatus === 'upcoming' && '🟡 শীঘ্রই শুরু হবে (Match Upcoming)'}
+                {location.liveStatus === 'inactive' && '🔴 এখন কোনো ম্যাচ নেই (Closed)'}
+              </span>
+            </div>
           </div>
-          <div className="font-sans flex-1">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">বর্তমান লাইভ স্ট্যাটাস</span>
-            <span className="text-xs font-extrabold text-slate-800 block mt-0.5">
-              {location.liveStatus === 'streaming' && '🟢 খেলা চলছে (Now Streaming Live!)'}
-              {location.liveStatus === 'upcoming' && '🟡 শীঘ্রই খেলা স্টার্ট হবে (Match Upcoming)'}
-              {location.liveStatus === 'inactive' && '🔴 এখন কোনো ম্যাচ নেই (Closed)'}
-            </span>
-          </div>
+
+          {distanceStr && (
+            <div className="bg-indigo-50 border-b-2 border-indigo-300 rounded-xl p-4 flex items-center gap-3 shadow-sm min-w-[130px] shrink-0">
+              <div className="text-lg">🏃‍♂️</div>
+              <div className="font-sans flex-1">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 block">আপনার থেকে দূরত্ব</span>
+                <span className="text-xs font-black text-indigo-900 block mt-0.5">{distanceStr}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Spot Details */}

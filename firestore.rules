@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email != null);
     }
 
     function isAdmin() {
@@ -30,8 +30,8 @@ service cloud.firestore {
         && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
         && data.description is string && data.description.size() <= 1000
         && data.openAreaType is string && data.openAreaType in ['Park', 'Playground', 'Square', 'Lakeside', 'Market', 'Other']
-        && (data.lat is number || data.lat is float || data.lat is int)
-        && (data.lng is number || data.lng is float || data.lng is int)
+        && (data.lat is float || data.lat is int)
+        && (data.lng is float || data.lng is int)
         && data.address is string && data.address.size() <= 500
         && data.status is string && data.status in ['pending', 'approved', 'rejected']
         && data.liveStatus is string && data.liveStatus in ['upcoming', 'streaming', 'inactive']
@@ -49,8 +49,8 @@ service cloud.firestore {
         && data.title is string
         && data.description is string
         && data.openAreaType is string
-        && (data.lat is number || data.lat is float || data.lat is int)
-        && (data.lng is number || data.lng is float || data.lng is int)
+        && (data.lat is float || data.lat is int)
+        && (data.lng is float || data.lng is int)
         && data.address is string
         && data.status is string
         && data.liveStatus is string

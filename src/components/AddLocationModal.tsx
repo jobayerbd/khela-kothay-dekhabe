@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { OpenAreaType } from '../types';
 import { createLocation, isOnline } from '../dbService';
 
@@ -11,6 +13,7 @@ interface AddLocationModalProps {
   isOpen: boolean;
   onClose: () => void;
   clickedCoords: { lat: number; lng: number } | null;
+  onCoordsChange: (coords: { lat: number; lng: number }) => void;
   onSuccess: () => void;
 }
 
@@ -18,6 +21,7 @@ export default function AddLocationModal({
   isOpen,
   onClose,
   clickedCoords,
+  onCoordsChange,
   onSuccess
 }: AddLocationModalProps) {
   const [title, setTitle] = useState('');
@@ -27,6 +31,99 @@ export default function AddLocationModal({
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const miniMapContainerRef = useRef<HTMLDivElement | null>(null);
+  const miniMapRef = useRef<L.Map | null>(null);
+  const miniMarkerRef = useRef<L.Marker | null>(null);
+
+  // Initialize and clean up Leaflet Mini map inside modal container
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let mapInstance: L.Map | null = null;
+    let markerInstance: L.Marker | null = null;
+
+    const timer = setTimeout(() => {
+      if (!miniMapContainerRef.current) return;
+
+      const initialLat = clickedCoords?.lat || 23.777176;
+      const initialLng = clickedCoords?.lng || 90.399452;
+
+      // 1. Create Map Instance
+      mapInstance = L.map(miniMapContainerRef.current, {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([initialLat, initialLng], 15);
+
+      // 2. Add Road-only clean base tilelayer from CartoDB
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(mapInstance);
+
+      // 3. Custom beautiful pin icon
+      const dropIcon = L.divIcon({
+        className: 'custom-drop-pin-mini',
+        html: `
+          <div class="flex flex-col items-center">
+            <span style="font-size: 32px; line-height: 1; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));">📍</span>
+            <div class="w-1.5 h-1.5 bg-indigo-900 rounded-full blur-[0.5px]"></div>
+          </div>
+        `,
+        iconSize: [30, 35],
+        iconAnchor: [15, 33]
+      });
+
+      // 4. Create Draggable Marker
+      markerInstance = L.marker([initialLat, initialLng], {
+        icon: dropIcon,
+        draggable: true
+      }).addTo(mapInstance);
+
+      // 5. Add Click-to-place pin listener
+      mapInstance.on('click', (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        if (markerInstance) {
+          markerInstance.setLatLng([lat, lng]);
+        }
+        onCoordsChange({ lat, lng });
+      });
+
+      // 6. Add Drag-end listener
+      markerInstance.on('dragend', () => {
+        if (markerInstance) {
+          const latlng = markerInstance.getLatLng();
+          onCoordsChange({ lat: latlng.lat, lng: latlng.lng });
+        }
+      });
+
+      miniMapRef.current = mapInstance;
+      miniMarkerRef.current = markerInstance;
+
+      // Trigger redraw to prevent gray map bug in modal containers
+      mapInstance.invalidateSize();
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      if (mapInstance) {
+        mapInstance.remove();
+      }
+      miniMapRef.current = null;
+      miniMarkerRef.current = null;
+    };
+  }, [isOpen]);
+
+  // Sync marker and center map back when clickedCoords prop coordinates update from outside
+  useEffect(() => {
+    if (miniMapRef.current && miniMarkerRef.current && clickedCoords) {
+      const { lat, lng } = clickedCoords;
+      const currentLatLng = miniMarkerRef.current.getLatLng();
+      if (currentLatLng.lat !== lat || currentLatLng.lng !== lng) {
+        miniMarkerRef.current.setLatLng([lat, lng]);
+        miniMapRef.current.panTo([lat, lng]);
+      }
+    }
+  }, [clickedCoords]);
 
   if (!isOpen) return null;
 
@@ -130,6 +227,20 @@ export default function AddLocationModal({
               </p>
             </div>
             <span className="bg-emerald-500 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide shadow-sm">স্থানাঙ্ক সেট সম্পন্ন</span>
+          </div>
+
+          {/* Interactive Mini Map to Drop / Drag Pin */}
+          <div className="space-y-1.5">
+            <label className="block text-indigo-900 text-xs font-black uppercase tracking-wider">
+              🗺️ ম্যাপে পিন ফেলে সঠিক স্পট সেট করুন (Drag/Click to drop pin)
+            </label>
+            <div 
+              ref={miniMapContainerRef} 
+              className="w-full h-[180px] rounded-xl overflow-hidden border border-slate-200 shadow-inner" 
+            />
+            <p className="text-[10px] text-slate-500 leading-normal">
+              * ম্যাপের যেকোনো খালি জায়গায় ক্লিক করুন অথবা লাল পিনটি (📍) ড্র্যাগ করে সঠিক অবস্থানে বসিয়ে খেলা দেখার সঠিক জায়গায় পিন ড্রপ করুন।
+            </p>
           </div>
 
           {/* Title */}

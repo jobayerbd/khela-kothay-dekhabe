@@ -35,6 +35,16 @@ export function isOnline(): boolean {
   return navigator.onLine;
 }
 
+let isMockAdminActive = false;
+
+export function setMockAdminActive(active: boolean) {
+  isMockAdminActive = active;
+}
+
+export function getMockAdminActive(): boolean {
+  return isMockAdminActive;
+}
+
 // Get cached locations from LocalStorage
 export function getLocalCachedLocations(): LocationItem[] {
   try {
@@ -116,16 +126,30 @@ export async function fetchLocations(): Promise<LocationItem[]> {
     const items: LocationItem[] = [];
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      const id = docSnap.id;
+      
+      let status = data.status || 'pending';
+      let liveStatus = data.liveStatus || 'inactive';
+      
+      if (isMockAdminActive) {
+        const cached = getLocalCachedLocations();
+        const localCopy = cached.find((x: any) => x.id === id);
+        if (localCopy) {
+          status = localCopy.status;
+          liveStatus = localCopy.liveStatus;
+        }
+      }
+
       items.push({
-        id: docSnap.id,
+        id,
         title: data.title || '',
         description: data.description || '',
         openAreaType: data.openAreaType || 'Other',
         lat: Number(data.lat),
         lng: Number(data.lng),
         address: data.address || '',
-        status: data.status || 'pending',
-        liveStatus: data.liveStatus || 'inactive',
+        status,
+        liveStatus,
         realCount: Number(data.realCount || 0),
         fakeCount: Number(data.fakeCount || 0),
         creatorId: data.creatorId || '',
@@ -408,6 +432,21 @@ export async function syncOfflineQueue(): Promise<number> {
  * Admin action: Approve or reject custom listing.
  */
 export async function updateLocationStatus(locationId: string, status: ListingStatus): Promise<void> {
+  const user = auth.currentUser;
+  
+  // If we are in mock-admin mode, let's bypass Firestore and just update the local cached list so they can easily preview!
+  if (isMockAdminActive) {
+    const cached = getLocalCachedLocations();
+    const idx = cached.findIndex(l => l.id === locationId);
+    if (idx !== -1) {
+      cached[idx].status = status;
+      cached[idx].updatedAt = new Date().toISOString();
+      setLocalCachedLocations(cached);
+    }
+    console.log("Mock Admin Mode: updated location status locally.");
+    return;
+  }
+
   if (!isOnline()) throw new Error("অফলাইনে অ্যাডমিন অপারেশন সম্ভব নয়।");
 
   try {
@@ -433,6 +472,21 @@ export async function updateLocationStatus(locationId: string, status: ListingSt
  * Creator/Admin action: Update active matchmaking streaming state.
  */
 export async function updateLiveStatus(locationId: string, liveStatus: LiveStatus): Promise<void> {
+  const user = auth.currentUser;
+
+  // Let's also bypass if they are mock admin
+  if (isMockAdminActive) {
+    const cached = getLocalCachedLocations();
+    const idx = cached.findIndex(l => l.id === locationId);
+    if (idx !== -1) {
+      cached[idx].liveStatus = liveStatus;
+      cached[idx].updatedAt = new Date().toISOString();
+      setLocalCachedLocations(cached);
+    }
+    console.log("Mock Admin Mode: updated live status locally.");
+    return;
+  }
+
   if (!isOnline()) throw new Error("লাইভ স্ট্যাটাস পরিবর্তন করতে ইন্টারনেট সংযোগ প্রয়োজন।");
 
   try {

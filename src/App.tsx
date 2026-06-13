@@ -26,6 +26,7 @@ import {
 import MapComponent from './components/MapComponent';
 import AddLocationModal from './components/AddLocationModal';
 import LocationDetails from './components/LocationDetails';
+import LoginModal from './components/LoginModal';
 import { LocationItem, OpenAreaType, LiveStatus, ListingStatus } from './types';
 import { auth, loginWithGoogle, logout } from './firebase';
 import {
@@ -34,7 +35,8 @@ import {
   getOfflineQueue,
   syncOfflineQueue,
   getLocalCachedLocations,
-  setLocalCachedLocations
+  setLocalCachedLocations,
+  setMockAdminActive
 } from './dbService';
 
 const ADMIN_EMAIL = 'op.jobayer@gmail.com';
@@ -59,6 +61,7 @@ export default function App() {
 
   // Modals and UI flags
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [clickedMapCoords, setClickedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isListLoading, setIsListLoading] = useState(false);
   const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -81,6 +84,9 @@ export default function App() {
 
     // Setup Firebase Auth change listener
     const unsubscribeAuth = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        setMockAdminActive(false);
+      }
       setUser(firebaseUser);
       setIsAuthLoading(false);
     });
@@ -111,6 +117,25 @@ export default function App() {
       window.removeEventListener('offline-queue-updated', handleQueueUpdate);
     };
   }, []);
+
+  // Sync selected location when database elements/status updates
+  useEffect(() => {
+    if (selectedLocation) {
+      const updated = locations.find(loc => loc.id === selectedLocation.id);
+      if (updated) {
+        if (
+          updated.status !== selectedLocation.status ||
+          updated.liveStatus !== selectedLocation.liveStatus ||
+          updated.realCount !== selectedLocation.realCount ||
+          updated.fakeCount !== selectedLocation.fakeCount
+        ) {
+          setSelectedLocation(updated);
+        }
+      } else {
+        setSelectedLocation(null);
+      }
+    }
+  }, [locations, selectedLocation]);
 
   // Filter application listings whenever queries or tabs shift
   useEffect(() => {
@@ -178,18 +203,16 @@ export default function App() {
     }
   };
 
-  // Google Login session handlers
-  const handleLogin = async () => {
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      alert("গুগল দিয়ে লগইন করতে সমস্যা হয়েছে। অনুগ্রহ করে পপ-আপ এক্সেস চেক বা চেক করে পুনরায় চেষ্টা করুন।");
-    }
+  // Login modal trigger helper
+  const handleLogin = () => {
+    setIsLoginModalOpen(true);
   };
 
   const handleLogout = async () => {
     if (window.confirm("আপনি কি নিশ্চিতভাবে লগআউট করতে চান?")) {
       await logout();
+      setUser(null);
+      setMockAdminActive(false);
       setSelectedLocation(null);
       setSelectedViewTab('approved');
     }
@@ -199,6 +222,7 @@ export default function App() {
   const handleMapClick = (coords: { lat: number; lng: number }) => {
     if (!user) {
       alert("নতুন প্রজেক্টর স্পট যোগ করতে আপনাকে প্রথমে লগইন করতে হবে। অনুগ্রহ করে ওপরে থাকা লগইন বাটনে ক্লিক করুন।");
+      setIsLoginModalOpen(true);
       return;
     }
     setClickedMapCoords(coords);
@@ -206,7 +230,15 @@ export default function App() {
   };
 
   const handleMockAdminTesting = () => {
-    alert("পরীক্ষামূলক অ্যাডমিন ভিউ সক্রিয় হয়েছে! এডমিন মডারেটর হিসেবে 'Pending' এবং সব লিস্টিং যাচাই করতে স্ক্রিনের ড্যাশবোর্ড ট্যাবসমূহ থেকে 'অ্যাপ্রুভাল স্পট' অপশনটি অন করুন।");
+    setMockAdminActive(true);
+    setUser({
+      uid: 'mock-admin-uid',
+      email: ADMIN_EMAIL,
+      displayName: 'Test Admin (Mock Mode)',
+      photoURL: null,
+      emailVerified: true
+    } as any);
+    alert("পরীক্ষামূলক অ্যাডমিন ভিউ সক্রিয় করা হয়েছে এবং আপনাকে op.jobayer@gmail.com হিসেবে সাইন-ইন মেলানো হয়েছে! এখন আপনি ম্যাপ মডারেট করতে পারবেন।");
   };
 
   return (
@@ -590,6 +622,8 @@ export default function App() {
                   onClose={() => setSelectedLocation(null)}
                   onRefresh={handleLoadLocations}
                   adminEmail={ADMIN_EMAIL}
+                  userCoords={userCoordinates}
+                  currentUser={user}
                 />
               </div>
             </div>
@@ -653,7 +687,13 @@ export default function App() {
           setClickedMapCoords(null);
         }}
         clickedCoords={clickedMapCoords}
+        onCoordsChange={setClickedMapCoords}
         onSuccess={handleLoadLocations}
+      />
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
       />
       
     </div>
