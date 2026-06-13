@@ -507,3 +507,80 @@ export async function updateLiveStatus(locationId: string, liveStatus: LiveStatu
     handleFirestoreError(error, OperationType.UPDATE, `${LOCATIONS_COLLECTION}/${locationId}`);
   }
 }
+
+/**
+ * Seed high-fidelity sports open-area locations in Dhaka
+ */
+export async function seedDemoLocations(): Promise<void> {
+  const demoItems = [
+    {
+      title: "ধানমন্ডি লেক রবীন্দ্র সরোবর প্রজেক্টর স্ক্রিন",
+      description: "ধানমন্ডি লেকের পাড়ে বিশাল জায়ড়াজুড়ে বড় পর্দায় এবং জায়ান্ট স্ক্রিনে সরাসরি বড় বড় ফুটবল ও ক্রিকেট ম্যাচ লাইভ টেলিকাস্ট করা হয়। প্রচুর দর্শক ও উৎসবমুখর পরিবেশ থাকে। এলাকার ক্লাবের পক্ষ থেকে দর্শনার্থীদের জন্য ফ্রিতে বসার চমৎকার ব্যবস্থা রয়েছে।",
+      openAreaType: "Lakeside" as OpenAreaType,
+      lat: 23.746124,
+      lng: 90.377042,
+      address: "রবীন্দ্র সরোবর উন্মুক্ত মঞ্চ, ধানমন্ডি লেক, ঢাকা",
+      status: "approved" as ListingStatus,
+      liveStatus: "streaming" as LiveStatus,
+      realCount: 24,
+      fakeCount: 1,
+      creatorId: "demo-system",
+      creatorEmail: "system@matchmap.bd"
+    },
+    {
+      title: "ডি ইউ টিএসসি চত্বর জায়ান্ট প্রজেক্টর স্পট",
+      description: "ঢাকা বিশ্ববিদ্যালয় টিএসসির সবুজ চত্বর। হাজারো ছাত্রদের মিলনমেলা এবং সুউচ্চ মানের প্রজেক্টরে ফুল এইচডি সরাসরি খেলা দেখার অপরূপ কোলাহলপূর্ণ জোস পরিবেশ। সবার জন্য উন্মুক্ত চত্বর এবং সংলগ্ন চা-নাস্তার স্টল আছে!",
+      openAreaType: "Square" as OpenAreaType,
+      lat: 23.731725,
+      lng: 90.395810,
+      address: "টিএসসি চত্বর, ঢাকা বিশ্ববিদ্যালয় ক্যাম্পাস, নীলক্ষেত, ঢাকা",
+      status: "approved" as ListingStatus,
+      liveStatus: "streaming" as LiveStatus,
+      realCount: 45,
+      fakeCount: 0,
+      creatorId: "demo-system",
+      creatorEmail: "system@matchmap.bd"
+    },
+    {
+      title: "পার্ক ভিউ ওপেন ময়দান স্ক্রিন, রমনা পার্ক",
+      description: "রমনা পার্কের খোলা সবুজ ঘাসের ময়দানে স্থাপিত হাই-ক্ল্যারিটি বড় এলইডি প্রজেক্টর স্ক্রিন। নিরিবিলি এবং শীতল বাতাসে পরিবার এবং বন্ধুদের সাথে বড় কাপের টুর্নামেন্ট উপভোগের অসাধারণ জায়গা। পর্যাপ্ত সিকিউরিটি ও পার্কিং সুবিধা রয়েছে।",
+      openAreaType: "Park" as OpenAreaType,
+      lat: 23.737150,
+      lng: 90.401124,
+      address: "পার্কের ২ নং মেইন গেইট সংলগ্ন সবুজ চত্বর, রমনা, ঢাকা",
+      status: "approved" as ListingStatus,
+      liveStatus: "upcoming" as LiveStatus,
+      realCount: 12,
+      fakeCount: 2,
+      creatorId: "demo-system",
+      creatorEmail: "system@matchmap.bd"
+    },
+    {
+      title: "বনানী ১১ নং সোসাইটি খেলার মাঠ স্পোর্টস প্রো",
+      description: "বনানী সোসাইটি এবং সুশীল সমাজের উদ্যোগে আতিথেয়তার সাথে আয়োজিত জায়ান্ট স্ক্রিন খেলা প্রদর্শনী। সিটিং অ্যারেঞ্জমেন্ট, ফ্লাডলাইট লাইটিং এবং অত্যন্ত সুশৃঙ্খল সিকিউরিটি সিস্টেম আছে।",
+      openAreaType: "Playground" as OpenAreaType,
+      lat: 23.794212,
+      lng: 90.404245,
+      address: "বনানী সোসাইটি খেলার মাঠ, রোড ১১, বনানী, ঢাকা-১২১৩",
+      status: "approved" as ListingStatus,
+      liveStatus: "inactive" as LiveStatus,
+      realCount: 8,
+      fakeCount: 0,
+      creatorId: "demo-system",
+      creatorEmail: "system@matchmap.bd"
+    }
+  ];
+
+  const colRef = collection(db, LOCATIONS_COLLECTION);
+  
+  for (const item of demoItems) {
+    const newId = doc(colRef).id;
+    const docRef = doc(db, LOCATIONS_COLLECTION, newId);
+    await setDoc(docRef, {
+      ...item,
+      id: newId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+}

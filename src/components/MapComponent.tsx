@@ -13,7 +13,7 @@ interface MapComponentProps {
 }
 
 // Custom Leaflet marker with modern status indicators & colors
-const createCustomIcon = (status: 'upcoming' | 'streaming' | 'inactive', isSelected: boolean) => {
+const createCustomIcon = (status: 'upcoming' | 'streaming' | 'inactive', isSelected: boolean, isApproved: boolean) => {
   let color = '#64748b'; // default slate-gray
   let emoji = '🔴';
   let pulseClass = '';
@@ -29,12 +29,18 @@ const createCustomIcon = (status: 'upcoming' | 'streaming' | 'inactive', isSelec
 
   const size = isSelected ? 42 : 32;
   
+  // Clean, high-impact HTML badges overlaying the top-right corner of the pin
+  const badgeHtml = isApproved
+    ? `<div class="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white rounded-full flex items-center justify-center border border-white shadow-md font-sans text-[9px] font-black" style="width: 15px; height: 15px; line-height: 1;">✓</div>`
+    : `<div class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white rounded-full flex items-center justify-center border border-white shadow-md text-[9px]" style="width: 15px; height: 15px; line-height: 1;">⏳</div>`;
+
   return L.divIcon({
     className: 'custom-leaflet-marker-icon',
     html: `
-      <div class="flex flex-col items-center justify-center transition-all ${isSelected ? 'scale-115' : 'hover:scale-105'}" style="width: ${size}px; height: ${size}px;">
+      <div class="relative flex flex-col items-center justify-center transition-all ${isSelected ? 'scale-115' : 'hover:scale-105'}" style="width: ${size}px; height: ${size}px;">
+        ${badgeHtml}
         <div class="rounded-full bg-white flex items-center justify-center border-2 shadow-md transition-shadow ${pulseClass}" 
-             style="background-color: ${color}; width: ${size}px; height: ${size}px; border-color: ${isSelected ? '#3b82f6' : '#ffffff'}; box-shadow: ${isSelected ? '0 0 8px #3b82f6' : '0 2px 4px rgba(0,0,0,0.15)'};">
+             style="background-color: ${color}; width: ${size}px; height: ${size}px; border-color: ${isSelected ? '#2563eb' : '#ffffff'}; box-shadow: ${isSelected ? '0 0 12px #2563eb' : '0 2px 4px rgba(0,0,0,0.15)'};">
           <span style="font-size: ${isSelected ? '15px' : '11px'}; line-height: 1;">${emoji}</span>
         </div>
         <div class="w-1.5 h-1.5 bg-black/20 blur-[1px] rounded-full mt-0.5"></div>
@@ -162,7 +168,7 @@ export default function MapComponent({
 
     locations.forEach((loc) => {
       const isSelected = selectedLocation?.id === loc.id;
-      const icon = createCustomIcon(loc.liveStatus, isSelected);
+      const icon = createCustomIcon(loc.liveStatus, isSelected, loc.status === 'approved');
       currentActiveIds.add(loc.id);
 
       if (markersRef.current[loc.id]) {

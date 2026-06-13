@@ -36,7 +36,8 @@ import {
   syncOfflineQueue,
   getLocalCachedLocations,
   setLocalCachedLocations,
-  setMockAdminActive
+  setMockAdminActive,
+  seedDemoLocations
 } from './dbService';
 
 const ADMIN_EMAIL = 'op.jobayer@gmail.com';
@@ -65,6 +66,7 @@ export default function App() {
   const [clickedMapCoords, setClickedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isListLoading, setIsListLoading] = useState(false);
   const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // Load locations on mount
   const handleLoadLocations = async () => {
@@ -76,6 +78,20 @@ export default function App() {
       console.error("Error loading locations:", err);
     } finally {
       setIsListLoading(false);
+    }
+  };
+
+  const handleSeedDemoData = async () => {
+    setIsSeeding(true);
+    try {
+      await seedDemoLocations();
+      alert("অভিনন্দন! ৪টি আকর্ষণীয় ডেমো প্রজেক্টর স্পট সফলভাবে ম্যাপে রেন্ডার সম্পন্ন হয়েছে।");
+      await handleLoadLocations();
+    } catch (err: any) {
+      console.error(err);
+      alert("ডেমো ডাটা সেট করতে সমস্যা হয়েছে: " + err.message);
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -508,8 +524,18 @@ export default function App() {
                 <Compass className="w-10 h-10 text-slate-350 mx-auto" />
                 <p className="font-extrabold text-slate-800 text-sm">কোনো লিস্টিং বা স্পট পাওয়া যায়নি!</p>
                 <p className="text-xs text-slate-500 select-none">সার্চ কিউরি মেলাতে অথবা ক্যাটাগরি ফিল্টার পরিবর্তন করে পুনরায় ট্রাই করুন।</p>
-                {selectedViewTab === 'my_spots' && !user && (
+                {selectedViewTab === 'my_spots' && !user ? (
                   <p className="text-xs text-indigo-700 font-bold pt-1">আপনার তৈরি স্পট দেখতে ওপরে 'লগইন করুন' বাটনে ক্লিক করুন।</p>
+                ) : (
+                  <div className="pt-2">
+                    <button
+                      onClick={handleSeedDemoData}
+                      disabled={isSeeding}
+                      className="mx-auto text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <span>🏟️</span> {isSeeding ? "লোডিং হচ্ছে..." : "কিছু ডেমো স্পট যুক্ত করুন"}
+                    </button>
+                  </div>
                 )}
               </div>
             ) : (
@@ -588,12 +614,21 @@ export default function App() {
               <p className="text-[10px] text-slate-600 leading-normal">
                 এডমিন ফিচার ও পেন্ডিং লিস্টিং মডারেশনগুলো দ্রুত পরীক্ষা করতে চান? নিচে বাটনে ক্লিক করুন:
               </p>
-              <button
-                onClick={handleMockAdminTesting}
-                className="mx-auto block text-[10px] py-1.5 px-3 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold rounded-lg transition-all active:scale-95 shadow-sm uppercase tracking-wider"
-              >
-                টেস্ট অ্যাডমিন ভিউ চালু করুন ⚙️
-              </button>
+              <div className="flex gap-2 justify-center pt-1 flex-wrap">
+                <button
+                  onClick={handleMockAdminTesting}
+                  className="text-[10px] py-1.5 px-3 bg-indigo-700 hover:bg-indigo-850 text-white font-extrabold rounded-lg transition-all active:scale-95 shadow-sm uppercase tracking-wider"
+                >
+                  টেস্ট অ্যাডমিন ভিউ চালু করুন ⚙️
+                </button>
+                <button
+                  onClick={handleSeedDemoData}
+                  disabled={isSeeding}
+                  className="text-[10px] py-1.5 px-3 bg-emerald-600 hover:bg-emerald-750 text-white font-extrabold rounded-lg transition-all active:scale-95 shadow-sm uppercase tracking-wider disabled:opacity-55"
+                >
+                  {isSeeding ? "লোডিং..." : "ডেমো স্পট লোড করুন 🏟️"}
+                </button>
+              </div>
             </div>
 
           </div>
@@ -608,7 +643,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
               <div className="h-[280px] md:h-full">
                 <MapComponent
-                  locations={locations.filter(x => x.status === 'approved' || x.id === selectedLocation.id)}
+                  locations={filteredLocations.some(x => x.id === selectedLocation.id) ? filteredLocations : [...filteredLocations, selectedLocation]}
                   selectedLocation={selectedLocation}
                   onSelectLocation={(loc) => setSelectedLocation(loc)}
                   onMapClickToAdd={handleMapClick}
@@ -630,7 +665,7 @@ export default function App() {
           ) : (
             <div className="h-full flex flex-col gap-4">
               <MapComponent
-                locations={locations.filter(x => x.status === 'approved')}
+                locations={filteredLocations}
                 selectedLocation={selectedLocation}
                 onSelectLocation={(loc) => setSelectedLocation(loc)}
                 onMapClickToAdd={handleMapClick}
