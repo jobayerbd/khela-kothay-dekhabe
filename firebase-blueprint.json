@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "location": {
+      "title": "Location",
+      "description": "A field showing location of a sports projector screen in an open area",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "openAreaType": { "type": "string", "enum": ["Park", "Playground", "Square", "Lakeside", "Market", "Other"] },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "liveStatus": { "type": "string", "enum": ["upcoming", "streaming", "inactive"] },
+        "realCount": { "type": "number" },
+        "fakeCount": { "type": "number" },
+        "creatorId": { "type": "string" },
+        "creatorEmail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "openAreaType", "lat", "lng", "address", "status", "liveStatus", "realCount", "fakeCount", "creatorId", "creatorEmail", "createdAt", "updatedAt"]
+    },
+    "feedback": {
+      "title": "Feedback",
+      "description": "Vote of whether a listed open-area projector is real or fake",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "voteType": { "type": "string", "enum": ["real", "fake"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userEmail", "voteType", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/locations/{locationId}": {
+      "schema": "location",
+      "description": "The collections of projector location items"
+    },
+    "/locations/{locationId}/feedbacks/{feedbackId}": {
+      "schema": "feedback",
+      "description": "Feedbacks/votes provided by users for a specific location"
+    }
+  }
+}

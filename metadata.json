@@ -1,0 +1,10 @@
+{
+  "name": "KhelaPorda (খেলাপর্দা)",
+  "description": "লাইভ প্রজেক্টর বা বড় পর্দায় খেলা দেখার ওপেন-এরিয়া লোকেশন ম্যাপ ও ট্র্যাকার। এতে রিয়েল/ফেক ফিডব্যাক, ও লাইভ স্ট্যাটাস রয়েছে।",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

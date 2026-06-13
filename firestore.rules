@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && request.auth.token.email == 'op.jobayer@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper to validate complete Location schema
+    function isValidLocation(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 150
+        && data.description is string && data.description.size() <= 1000
+        && data.openAreaType is string && data.openAreaType in ['Park', 'Playground', 'Square', 'Lakeside', 'Market', 'Other']
+        && (data.lat is number || data.lat is float || data.lat is int)
+        && (data.lng is number || data.lng is float || data.lng is int)
+        && data.address is string && data.address.size() <= 500
+        && data.status is string && data.status in ['pending', 'approved', 'rejected']
+        && data.liveStatus is string && data.liveStatus in ['upcoming', 'streaming', 'inactive']
+        && data.realCount is int && data.realCount >= 0
+        && data.fakeCount is int && data.fakeCount >= 0
+        && data.creatorId is string && data.creatorId.size() <= 128
+        && data.creatorEmail is string && data.creatorEmail.size() <= 200
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    // Helper to validate Location schema state transitions during updates
+    function isValidLocationUpdate(data, existingData) {
+      return data.id is string
+        && data.title is string
+        && data.description is string
+        && data.openAreaType is string
+        && (data.lat is number || data.lat is float || data.lat is int)
+        && (data.lng is number || data.lng is float || data.lng is int)
+        && data.address is string
+        && data.status is string
+        && data.liveStatus is string
+        && data.realCount is int
+        && data.fakeCount is int
+        && data.creatorId is string
+        && data.creatorId == existingData.creatorId // Creator is immutable
+        && data.creatorEmail is string
+        && data.updatedAt == request.time;
+    }
+
+    // Helpers to validate Feedback schema
+    function isValidFeedback(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId == request.auth.uid
+        && data.userEmail is string && data.userEmail == request.auth.token.email
+        && data.voteType is string && data.voteType in ['real', 'fake']
+        && data.createdAt == request.time;
+    }
+
+    // Location definitions
+    match /locations/{locationId} {
+      allow get: if isSignedIn() && (
+        resource.data.status == 'approved' 
+        || resource.data.creatorId == request.auth.uid 
+        || isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.status == 'approved' 
+        || resource.data.creatorId == request.auth.uid 
+        || isAdmin()
+      );
+
+      // Create is only for logged in verified users, defaulting to status='pending'
+      allow create: if isVerified() 
+        && isValidId(locationId)
+        && isValidLocation(request.resource.data) 
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.realCount == 0
+        && request.resource.data.fakeCount == 0;
+
+      // Update rules split into specific validated actions
+      allow update: if isVerified() 
+        && isValidId(locationId)
+        && isValidLocationUpdate(request.resource.data, resource.data)
+        && (
+          // Action 1: Admin updates the approval status
+          (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) 
+          
+          || 
+          
+          // Action 2: Creator (or Admin) updates the liveStatus
+          ((resource.data.creatorId == request.auth.uid || isAdmin()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['liveStatus', 'updatedAt']))
+          
+          ||
+          
+          // Action 3: Vote real - requires adding a feedback document with voteType == 'real' synchronously
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['realCount', 'updatedAt']) 
+            && request.resource.data.realCount == resource.data.realCount + 1
+            && getAfter(/databases/$(database)/documents/locations/$(locationId)/feedbacks/$(request.auth.uid)).data.voteType == 'real')
+          
+          ||
+          
+          // Action 4: Vote fake - requires adding a feedback document with voteType == 'fake' synchronously
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fakeCount', 'updatedAt'])
+            && request.resource.data.fakeCount == resource.data.fakeCount + 1
+            && getAfter(/databases/$(database)/documents/locations/$(locationId)/feedbacks/$(request.auth.uid)).data.voteType == 'fake')
+        );
+
+      allow delete: if isVerified() && (
+        resource.data.creatorId == request.auth.uid 
+        || isAdmin()
+      );
+
+      // Feedback subcollection matching
+      match /feedbacks/{feedbackId} {
+        allow read: if isSignedIn();
+
+        allow create: if isVerified()
+          && feedbackId == request.auth.uid
+          && isValidFeedback(request.resource.data)
+          && existsAfter(/databases/$(database)/documents/locations/$(locationId));
+          
+        allow update, delete: if false; // Feedbacks/votes are permanent once submitted
+      }
+    }
+  }
+}
